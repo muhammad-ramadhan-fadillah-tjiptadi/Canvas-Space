@@ -18,7 +18,7 @@ class Pesanan extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function detailPesanans()
+    public function detailPesanan()
     {
         return $this->hasMany(DetailPesanan::class, 'pesanan_id');
     }

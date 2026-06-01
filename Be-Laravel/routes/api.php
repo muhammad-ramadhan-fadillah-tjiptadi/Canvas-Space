@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\ProdukController;
+use App\Http\Controllers\API\TransaksiController;
+use App\Http\Controllers\API\PesananController;
 
 // Route yang bisa diakses tanpa token (Publik)
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,7 +19,13 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Nanti kita selipkan middleware khusus Admin di sini. 
+    // Rute transaksi
+    Route::post('/checkout', [TransaksiController::class, 'checkout']);
+
+    // Rute Transaksi Berbelanja
+    Route::post('/checkout', [PesananController::class, 'checkout']);
+    Route::get('/riwayat-pesanan', [PesananController::class, 'riwayat']);
+
     Route::post('/produk', [ProdukController::class, 'store']);
     Route::match(['put', 'patch', 'post'], '/produk/{id}', [ProdukController::class, 'update'])->middleware('parse.multipart');
     Route::delete('/produk/{id}', [ProdukController::class, 'destroy']);

@@ -15,8 +15,11 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Ambil user dari guard default atau fallback ke guard api (JWT)
+        $user = auth()->user() ?: auth()->guard('api')->user();
+
         // Pastikan user sudah login (terautentikasi) dan memiliki role 'Admin'
-        if (auth()->check() && auth()->user()->role === 'Admin') {
+        if ($user && $user->role === 'Admin') {
             return $next($request);
         }
 

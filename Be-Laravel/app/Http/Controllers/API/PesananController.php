@@ -13,6 +13,81 @@ use Illuminate\Support\Facades\Validator;
 class PesananController extends Controller
 {
     /**
+     * Menampilkan Semua Pesanan dari Semua User (Khusus Admin)
+     */
+    public function semuaPesanan()
+    {
+        // Memastikan hanya Admin yang bisa mengakses
+        if (auth()->guard('api')->user()->role !== 'Admin') {
+            return response()->json(['message' => 'Akses ditolak! Anda bukan Admin.'], 403);
+        }
+
+        $pesanan = Pesanan::with(['user', 'detailPesanan.produk'])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $pesanan
+        ], 200);
+    }
+
+    /**
+     * Mengubah Status Pesanan + Logika Auto-Restore Stok jika Dibatalkan (Khusus Admin)
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        // Memastikan hanya Admin yang bisa mengubah
+        if (auth()->guard('api')->user()->role !== 'Admin') {
+            return response()->json(['message' => 'Akses ditolak! Anda bukan Admin.'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:Pending,Diproses,Dikirim,Selesai,Dibatalkan',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $pesanan = Pesanan::with('detailPesanan.produk')->find($id);
+
+        if (!$pesanan) {
+            return response()->json(['message' => 'Pesanan tidak ditemukan!'], 404);
+        }
+
+        // Cek jika status sebelumnya sudah "Dibatalkan", tidak boleh diotak-atik lagi
+        if ($pesanan->status_pesanan === 'Dibatalkan') {
+            return response()->json(['message' => 'Pesanan yang sudah dibatalkan tidak bisa diubah lagi!'], 400);
+        }
+
+        return DB::transaction(function () use ($request, $pesanan) {
+            $statusBaru = $request->status;
+
+            // LOGIKA PENTING: Jika status berubah menjadi Dibatalkan, kembalikan stok produk
+            if ($statusBaru === 'Dibatalkan') {
+                foreach ($pesanan->detailPesanan as $detail) {
+                    $produk = $detail->produk;
+                    if ($produk) {
+                        $produk->stok += $detail->kuantitas; // Menggunakan kuantitas
+                        $produk->save();
+                    }
+                }
+            }
+
+            // Update status pesanan
+            $pesanan->status_pesanan = $statusBaru;
+            $pesanan->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Status pesanan ID #{$pesanan->id} berhasil diperbarui menjadi {$statusBaru}!",
+                'data'    => $pesanan
+            ], 200);
+        });
+    }
+
+    /**
      * Proses Checkout / Buat Pesanan Baru
      */
     public function checkout(Request $request)
